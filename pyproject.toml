@@ -1,0 +1,9 @@
+[project]
+name = "naserbot"
+version = "0.1.0"
+description = "Telegram group bot (AI features TBD)"
+requires-python = ">=3.11"
+dependencies = [
+    "python-telegram-bot>=21.0",
+    "python-dotenv>=1.0",
+]
