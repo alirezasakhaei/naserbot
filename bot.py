@@ -21,10 +21,11 @@ TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 OWNER_CHAT_ID = int(os.environ["OWNER_CHAT_ID"])
 DB_PATH = os.environ.get("NASERBOT_DB", "naserbot.db")
 
-# Sticker auto-reply: when a sticker with file_unique_id == TRIGGER fires,
-# reply with the sticker whose file_id == RESPONSE. Both optional.
-STICKER_TRIGGER_UNIQUE_ID = os.environ.get("STICKER_TRIGGER_UNIQUE_ID", "").strip()
-STICKER_RESPONSE_FILE_ID = os.environ.get("STICKER_RESPONSE_FILE_ID", "").strip()
+# Sticker auto-reply: when the trigger sticker is seen, reply with the response one.
+STICKER_TRIGGER_UNIQUE_ID = "AgADgBsAAoWhoVI"
+STICKER_RESPONSE_FILE_ID = (
+    "CAACAgQAAxkBAAJCkWoXZmEUi_wXpCeCI6KGNdJ121PHAAJzHAACtHWxUjOrC3r7CNjgOwQ"
+)
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
