@@ -19,6 +19,7 @@ load_dotenv()
 
 TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 OWNER_CHAT_ID = int(os.environ["OWNER_CHAT_ID"])
+DB_PATH = os.environ.get("NASERBOT_DB", "naserbot.db")
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -26,7 +27,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger("naserbot")
 
-store = MessageStore()
+store = MessageStore(DB_PATH)
+logger.info("Message store at %s", DB_PATH)
 
 
 def _display_name(user) -> str:
