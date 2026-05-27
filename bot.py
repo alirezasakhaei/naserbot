@@ -33,6 +33,28 @@ logging.basicConfig(
 )
 logger = logging.getLogger("naserbot")
 
+# --- Volume audit: prove (or disprove) that /data is actually persistent ---
+from pathlib import Path as _P  # noqa: E402
+import datetime as _dt  # noqa: E402
+
+_db_dir = _P(DB_PATH).parent
+_marker = _db_dir / "boot_marker.txt"
+try:
+    _db_dir.mkdir(parents=True, exist_ok=True)
+    _existed = _marker.exists()
+    _prev = _marker.read_text().strip() if _existed else "(none)"
+    _now = _dt.datetime.utcnow().isoformat() + "Z"
+    _marker.write_text(_now)
+    logger.info("VOLUME AUDIT: dir=%s exists=%s prev_marker=%s new_marker=%s",
+                _db_dir, _existed, _prev, _now)
+    try:
+        _ls = sorted(p.name + (f" ({p.stat().st_size}B)" if p.is_file() else "/") for p in _db_dir.iterdir())
+        logger.info("VOLUME AUDIT: contents of %s = %s", _db_dir, _ls)
+    except Exception as e:
+        logger.warning("VOLUME AUDIT: ls failed: %s", e)
+except Exception:
+    logger.exception("VOLUME AUDIT failed")
+
 store = MessageStore(DB_PATH)
 logger.info("Message store at %s", DB_PATH)
 _stats = store.stats()
