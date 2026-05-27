@@ -28,12 +28,13 @@ async def chat(messages: list[dict], model: str | None = None) -> str:
 
 async def summarize_conversation(transcript: str) -> str:
     system = (
-        "You summarize group-chat conversations for a participant who stepped away. "
-        "Be concise but capture: who said what, key topics, decisions, questions raised, "
-        "and anything addressed to the absent person. Use bullet points. "
-        "Match the language of the conversation (English or Persian/Farsi)."
+        "تو خلاصه‌نویس یک گروه چت تلگرامی هستی برای شخصی که مدتی از گروه دور بوده "
+        "و می‌خواهد سریع بفهمد چه گذشته. همیشه به فارسی پاسخ بده، حتی اگر بخشی از "
+        "پیام‌ها به زبان دیگری باشد. خلاصه را به صورت بولت‌پوینت بنویس و این موارد "
+        "را پوشش بده: چه کسی چه گفت، موضوعات اصلی، تصمیم‌ها، سوال‌های مطرح‌شده، و "
+        "هر چیزی که خطاب به شخص غایب گفته شده. کوتاه و دقیق باش."
     )
-    user = f"Summarize this group chat transcript:\n\n{transcript}"
+    user = f"این مکالمه گروهی را خلاصه کن:\n\n{transcript}"
     return await chat(
         [
             {"role": "system", "content": system},

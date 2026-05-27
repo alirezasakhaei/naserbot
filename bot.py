@@ -96,7 +96,7 @@ async def summary(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     chat = update.effective_chat
     if chat.type not in ("group", "supergroup"):
-        await msg.reply_text("This command only makes sense in a group.")
+        await msg.reply_text("این دستور فقط داخل گروه کار می‌کنه.")
         return
 
     user = msg.from_user
@@ -104,14 +104,14 @@ async def summary(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     if last_id is None:
         await msg.reply_text(
-            "I don't have any previous message from you in this chat yet. "
-            "Send something, then try /summary later to catch up on what you missed."
+            "هنوز هیچ پیامی ازت توی این گروه ندارم. "
+            "یه پیام بفرست، بعداً با /summary بگو چه چیزایی رو از دست دادی."
         )
         return
 
     rows = store.messages_in_range(chat.id, last_id, msg.message_id)
     if not rows:
-        await msg.reply_text("Nothing new since your last message.")
+        await msg.reply_text("از آخرین پیامت چیز جدیدی نبوده.")
         return
 
     transcript = "\n".join(f"{r.display_name}: {r.text}" for r in rows)
@@ -127,10 +127,10 @@ async def summary(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         result = await summarize_conversation(transcript)
     except Exception:
         logger.exception("LLM call failed")
-        await msg.reply_text("Sorry, summary failed. Try again in a sec.")
+        await msg.reply_text("ببخشید، خلاصه نشد. یه لحظه دیگه دوباره امتحان کن.")
         return
 
-    header = f"📝 Summary since your last message ({len(rows)} msgs):\n\n"
+    header = f"📝 خلاصه از آخرین پیامت تا الان ({len(rows)} پیام):\n\n"
     await msg.reply_text(header + result)
 
 
