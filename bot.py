@@ -21,6 +21,11 @@ TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 OWNER_CHAT_ID = int(os.environ["OWNER_CHAT_ID"])
 DB_PATH = os.environ.get("NASERBOT_DB", "naserbot.db")
 
+# Sticker auto-reply: when a sticker with file_unique_id == TRIGGER fires,
+# reply with the sticker whose file_id == RESPONSE. Both optional.
+STICKER_TRIGGER_UNIQUE_ID = os.environ.get("STICKER_TRIGGER_UNIQUE_ID", "").strip()
+STICKER_RESPONSE_FILE_ID = os.environ.get("STICKER_RESPONSE_FILE_ID", "").strip()
+
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
@@ -74,6 +79,32 @@ async def record_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         msg.message_id,
         msg.text[:60],
     )
+
+
+async def handle_sticker(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    msg = update.message
+    if msg is None or msg.sticker is None:
+        return
+    s = msg.sticker
+    logger.info(
+        "STICKER chat=%s from=%s file_id=%s file_unique_id=%s emoji=%s set=%s",
+        msg.chat_id,
+        msg.from_user.id if msg.from_user else None,
+        s.file_id,
+        s.file_unique_id,
+        s.emoji,
+        s.set_name,
+    )
+    if (
+        STICKER_TRIGGER_UNIQUE_ID
+        and STICKER_RESPONSE_FILE_ID
+        and s.file_unique_id == STICKER_TRIGGER_UNIQUE_ID
+    ):
+        try:
+            await msg.reply_sticker(STICKER_RESPONSE_FILE_ID)
+            logger.info("Sent auto-reply sticker in chat %s", msg.chat_id)
+        except Exception:
+            logger.exception("Failed to send auto-reply sticker")
 
 
 async def debug_any(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -149,6 +180,8 @@ def main() -> None:
     app.add_handler(CommandHandler("summary", summary))
     # Record every plain text message (groups + private), excluding commands.
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, record_message))
+    # Sticker auto-reply + sticker ID logger.
+    app.add_handler(MessageHandler(filters.Sticker.ALL, handle_sticker))
     # Debug: log EVERY incoming update so we can diagnose privacy/delivery issues.
     app.add_handler(MessageHandler(filters.ALL, debug_any), group=1)
 
