@@ -64,6 +64,29 @@ async def record_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             text=msg.text,
         )
     )
+    logger.info(
+        "saved msg chat=%s user=%s(%s) id=%s text=%r",
+        msg.chat_id,
+        _display_name(user),
+        user.id,
+        msg.message_id,
+        msg.text[:60],
+    )
+
+
+async def debug_any(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Logs every update so we can see what Telegram is actually delivering."""
+    msg = update.message or update.edited_message
+    if msg is None:
+        logger.info("update without message: %s", update.to_dict())
+        return
+    logger.info(
+        "RAW update chat=%s type=%s from=%s has_text=%s",
+        msg.chat_id,
+        msg.chat.type,
+        msg.from_user.id if msg.from_user else None,
+        bool(msg.text),
+    )
 
 
 async def summary(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -124,6 +147,8 @@ def main() -> None:
     app.add_handler(CommandHandler("summary", summary))
     # Record every plain text message (groups + private), excluding commands.
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, record_message))
+    # Debug: log EVERY incoming update so we can diagnose privacy/delivery issues.
+    app.add_handler(MessageHandler(filters.ALL, debug_any), group=1)
 
     logger.info("Starting NaserBot...")
     app.run_polling(allowed_updates=Update.ALL_TYPES)
