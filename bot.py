@@ -157,14 +157,13 @@ async def summary(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     await context.bot.send_chat_action(chat.id, ChatAction.TYPING)
     try:
-        result = await summarize_conversation(transcript)
+        result = await summarize_conversation(transcript, requester_name=_display_name(user))
     except Exception:
         logger.exception("LLM call failed")
         await msg.reply_text("ببخشید، خلاصه نشد. یه لحظه دیگه دوباره امتحان کن.")
         return
 
-    header = f"📝 خلاصه از آخرین پیامت تا الان ({len(rows)} پیام):\n\n"
-    await msg.reply_text(header + result)
+    await msg.reply_text(result)
 
 
 async def on_startup(app: Application) -> None:
