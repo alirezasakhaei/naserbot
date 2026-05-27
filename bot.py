@@ -35,6 +35,19 @@ logger = logging.getLogger("naserbot")
 
 store = MessageStore(DB_PATH)
 logger.info("Message store at %s", DB_PATH)
+_stats = store.stats()
+logger.info(
+    "DB on startup: %d msgs / %d chats / %d users / msg_id range [%s..%s] / date range [%s..%s]",
+    _stats["total"],
+    _stats["chats"],
+    _stats["users"],
+    _stats["min_msg_id"],
+    _stats["max_msg_id"],
+    _stats["min_date"],
+    _stats["max_date"],
+)
+for chat_id, n, mn, mx in _stats["top_chats"]:
+    logger.info("  chat %s: %d msgs, ids %s..%s", chat_id, n, mn, mx)
 
 
 def _display_name(user) -> str:

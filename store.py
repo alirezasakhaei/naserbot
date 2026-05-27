@@ -90,6 +90,30 @@ class MessageStore:
             ).fetchone()
         return row[0] if row and row[0] is not None else None
 
+    def stats(self) -> dict:
+        """Quick health snapshot of what's actually persisted."""
+        with self._conn() as c:
+            total = c.execute("SELECT COUNT(*) FROM messages").fetchone()[0]
+            chats = c.execute("SELECT COUNT(DISTINCT chat_id) FROM messages").fetchone()[0]
+            users = c.execute("SELECT COUNT(DISTINCT user_id) FROM messages").fetchone()[0]
+            extremes = c.execute(
+                "SELECT MIN(date), MAX(date), MIN(message_id), MAX(message_id) FROM messages"
+            ).fetchone()
+            per_chat = c.execute(
+                "SELECT chat_id, COUNT(*), MIN(message_id), MAX(message_id) "
+                "FROM messages GROUP BY chat_id ORDER BY 2 DESC LIMIT 5"
+            ).fetchall()
+        return {
+            "total": total,
+            "chats": chats,
+            "users": users,
+            "min_date": extremes[0],
+            "max_date": extremes[1],
+            "min_msg_id": extremes[2],
+            "max_msg_id": extremes[3],
+            "top_chats": per_chat,
+        }
+
     def messages_in_range(
         self, chat_id: int, after_message_id: int, before_message_id: int
     ) -> list[StoredMessage]:
