@@ -213,7 +213,7 @@ def main() -> None:
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("ping", ping))
-    app.add_handler(CommandHandler("summary", summary))
+    app.add_handler(CommandHandler(["summary", "sum", "s"], summary))
     # Record every plain text message (groups + private), excluding commands.
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, record_message))
     # Sticker auto-reply + sticker ID logger.
