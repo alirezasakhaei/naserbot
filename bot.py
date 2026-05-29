@@ -41,6 +41,9 @@ logging.basicConfig(
     level=logging.INFO,
 )
 logger = logging.getLogger("naserbot")
+# Silence the constant "POST .../getUpdates 200 OK" polling spam.
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("telegram.ext.Updater").setLevel(logging.WARNING)
 
 # --- Volume audit: prove (or disprove) that /data is actually persistent ---
 from pathlib import Path as _P  # noqa: E402
@@ -169,18 +172,49 @@ async def handle_animation(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             logger.exception("Failed to send auto-reply GIF")
 
 
+def _content_kind(msg) -> str:
+    """Best-effort label of what kind of content a non-text message carries."""
+    for attr in (
+        "text",
+        "sticker",
+        "animation",
+        "video",
+        "video_note",
+        "photo",
+        "document",
+        "audio",
+        "voice",
+        "poll",
+        "dice",
+        "location",
+        "contact",
+    ):
+        val = getattr(msg, attr, None)
+        if val:
+            return attr
+    return "unknown"
+
+
 async def debug_any(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Logs every update so we can see what Telegram is actually delivering."""
     msg = update.message or update.edited_message
     if msg is None:
         logger.info("update without message: %s", update.to_dict())
         return
+    kind = _content_kind(msg)
+    # Surface the file_id/unique_id for any media so nothing slips through silently.
+    media = getattr(msg, kind, None) if kind not in ("text", "unknown") else None
+    file_id = getattr(media, "file_id", None)
+    file_unique_id = getattr(media, "file_unique_id", None)
+    file_name = getattr(media, "file_name", None)
     logger.info(
-        "RAW update chat=%s type=%s from=%s has_text=%s",
+        "RAW chat=%s from=%s kind=%s file_id=%s file_unique_id=%s name=%s",
         msg.chat_id,
-        msg.chat.type,
         msg.from_user.id if msg.from_user else None,
-        bool(msg.text),
+        kind,
+        file_id,
+        file_unique_id,
+        file_name,
     )
 
 
