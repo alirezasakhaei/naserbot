@@ -14,7 +14,7 @@ from telegram.ext import (
 )
 
 from llm import summarize_conversation
-from store import MessageStore, StoredMessage
+from store import MediaItem, MessageStore, StoredMessage
 
 load_dotenv()
 
@@ -22,19 +22,27 @@ TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 OWNER_CHAT_ID = int(os.environ["OWNER_CHAT_ID"])
 DB_PATH = os.environ.get("NASERBOT_DB", "naserbot.db")
 
-# Sticker auto-reply: when any trigger sticker is seen, reply with the response one.
-STICKER_TRIGGER_UNIQUE_IDS = {
-    "AgADgBsAAoWhoVI",
-    "AgADAh4AAunVoVI",
-}
-STICKER_RESPONSE_FILE_ID = (
-    "CAACAgQAAxkBAAJCkWoXZmEUi_wXpCeCI6KGNdJ121PHAAJzHAACtHWxUjOrC3r7CNjgOwQ"
-)
+# --- Media auto-reply file_ids ---------------------------------------------
+# Heli's media (file_ids captured from logs).
+_HELI_GIF1 = "CgACAgQAAyEFAATpJtHYAAIyFmoXcWiIZyS0HZ-zD3pwtBv-hFJmAALMBwACf9pAUApjX3a9mdj6OwQ"
+_HELI_GIF2 = "CgACAgQAAyEFAATpJtHYAAIzWGoYaPQGllyLgseLXm6r9K_dc1dfAAJLBgACPBgQU7y2Ily1U-IROwQ"
+_HELI_GIF3 = "CgACAgEAAyEFAATpJtHYAAIzV2oYZ3yaex6oZgPKJDnKgEqmuR6oAAI_AQACGK0BR_G3Q3UfxOvaOwQ"
+_HELI_STICKER = "CAACAgQAAyEFAATpJtHYAAI1QGoaG419OWedNmWsGbx4GHw5dWp_AAICHgAC6dWhUlGotUjHfsZZOwQ"
+_OLD_STICKER = "CAACAgQAAxkBAAJCkWoXZmEUi_wXpCeCI6KGNdJ121PHAAJzHAACtHWxUjOrC3r7CNjgOwQ"
 
-# GIF (animation) auto-reply: when any trigger GIF is seen, reply with the response one.
-# Fill these in from the "GIF ..." log lines once you've sent the GIFs in the group.
-GIF_TRIGGER_UNIQUE_IDS: set[str] = set()
-GIF_RESPONSE_FILE_ID = ""
+# Auto-reply map. Key = incoming media's file_unique_id.
+# Value = (how to send the reply, file_id to send). "gif" -> reply_animation,
+# "sticker" -> reply_sticker. Pairs that point at each other = two-way trigger.
+MEDIA_REPLIES: dict[str, tuple[str, str]] = {
+    # Heli's two latest GIFs trigger each other.
+    "AgADSwYAAjwYEFM": ("gif", _HELI_GIF3),  # GIF#2 -> GIF#3
+    "AgADPwEAAhitAUc": ("gif", _HELI_GIF2),  # GIF#3 -> GIF#2
+    # Heli's first GIF and her only sticker trigger each other.
+    "AgADzAcAAn_aQFA": ("sticker", _HELI_STICKER),  # GIF#1   -> sticker
+    "AgADAh4AAunVoVI": ("gif", _HELI_GIF1),         # sticker -> GIF#1
+    # Original 🫥 sticker keeps its one-way reply.
+    "AgADgBsAAoWhoVI": ("sticker", _OLD_STICKER),
+}
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -129,47 +137,78 @@ async def record_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     )
 
 
-async def handle_sticker(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    msg = update.message
-    if msg is None or msg.sticker is None:
-        return
-    s = msg.sticker
-    logger.info(
-        "STICKER chat=%s from=%s file_id=%s file_unique_id=%s emoji=%s set=%s",
-        msg.chat_id,
-        msg.from_user.id if msg.from_user else None,
-        s.file_id,
-        s.file_unique_id,
-        s.emoji,
-        s.set_name,
-    )
-    if STICKER_RESPONSE_FILE_ID and s.file_unique_id in STICKER_TRIGGER_UNIQUE_IDS:
-        try:
-            await msg.reply_sticker(STICKER_RESPONSE_FILE_ID)
-            logger.info("Sent auto-reply sticker in chat %s", msg.chat_id)
-        except Exception:
-            logger.exception("Failed to send auto-reply sticker")
+def _extract_media(msg):
+    """Return (kind, media_obj) for the first media attribute present, else (None, None).
+
+    'animation' is normalised to kind='gif'. Photos return their largest size.
+    """
+    for attr in (
+        "sticker",
+        "animation",
+        "video",
+        "video_note",
+        "document",
+        "photo",
+        "audio",
+        "voice",
+    ):
+        val = getattr(msg, attr, None)
+        if val:
+            if attr == "photo":
+                val = val[-1]  # largest PhotoSize
+            kind = "gif" if attr == "animation" else attr
+            return kind, val
+    return None, None
 
 
-async def handle_animation(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Persist any media to the DB and fire auto-replies on configured triggers."""
     msg = update.message
-    if msg is None or msg.animation is None:
+    if msg is None:
         return
-    a = msg.animation
+    kind, media = _extract_media(msg)
+    if media is None:
+        return
+    user = msg.from_user
+
+    if user is not None and not user.is_bot:
+        store.save_media(
+            MediaItem(
+                chat_id=msg.chat_id,
+                message_id=msg.message_id,
+                user_id=user.id,
+                date=int(msg.date.timestamp()),
+                username=user.username,
+                display_name=_display_name(user),
+                kind=kind,
+                file_id=media.file_id,
+                file_unique_id=media.file_unique_id,
+                file_name=getattr(media, "file_name", None),
+            )
+        )
     logger.info(
-        "GIF chat=%s from=%s file_id=%s file_unique_id=%s name=%s",
-        msg.chat_id,
-        msg.from_user.id if msg.from_user else None,
-        a.file_id,
-        a.file_unique_id,
-        a.file_name,
+        "MEDIA kind=%s from=%s file_unique_id=%s",
+        kind,
+        user.id if user else None,
+        media.file_unique_id,
     )
-    if GIF_RESPONSE_FILE_ID and a.file_unique_id in GIF_TRIGGER_UNIQUE_IDS:
+
+    reply = MEDIA_REPLIES.get(media.file_unique_id)
+    if reply:
+        reply_kind, reply_file_id = reply
         try:
-            await msg.reply_animation(GIF_RESPONSE_FILE_ID)
-            logger.info("Sent auto-reply GIF in chat %s", msg.chat_id)
+            if reply_kind == "sticker":
+                await msg.reply_sticker(reply_file_id)
+            else:
+                await msg.reply_animation(reply_file_id)
+            logger.info(
+                "Auto-replied %s to trigger %s in chat %s",
+                reply_kind,
+                media.file_unique_id,
+                msg.chat_id,
+            )
         except Exception:
-            logger.exception("Failed to send auto-reply GIF")
+            logger.exception("Failed to send auto-reply media")
 
 
 def _content_kind(msg) -> str:
@@ -275,10 +314,20 @@ def main() -> None:
     app.add_handler(CommandHandler(["summary", "sum", "s"], summary))
     # Record every plain text message (groups + private), excluding commands.
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, record_message))
-    # Sticker auto-reply + sticker ID logger.
-    app.add_handler(MessageHandler(filters.Sticker.ALL, handle_sticker))
-    # GIF auto-reply + GIF ID logger.
-    app.add_handler(MessageHandler(filters.ANIMATION, handle_animation))
+    # Persist + auto-reply for all media (stickers, GIFs, video, docs, photos...).
+    app.add_handler(
+        MessageHandler(
+            filters.Sticker.ALL
+            | filters.ANIMATION
+            | filters.VIDEO
+            | filters.VIDEO_NOTE
+            | filters.Document.ALL
+            | filters.PHOTO
+            | filters.AUDIO
+            | filters.VOICE,
+            handle_media,
+        )
+    )
     # Debug: log EVERY incoming update so we can diagnose privacy/delivery issues.
     app.add_handler(MessageHandler(filters.ALL, debug_any), group=1)
 

@@ -18,6 +18,20 @@ class StoredMessage:
     text: str
 
 
+@dataclass
+class MediaItem:
+    chat_id: int
+    user_id: int
+    message_id: int
+    date: int  # unix timestamp
+    username: str | None
+    display_name: str
+    kind: str  # 'sticker', 'gif', 'video', 'document', 'photo', ...
+    file_id: str
+    file_unique_id: str
+    file_name: str | None
+
+
 class MessageStore:
     def __init__(self, path: str | Path = "naserbot.db") -> None:
         self.path = str(path)
@@ -56,6 +70,27 @@ class MessageStore:
                 "CREATE INDEX IF NOT EXISTS idx_messages_chat_user "
                 "ON messages(chat_id, user_id, message_id)"
             )
+            c.execute(
+                """
+                CREATE TABLE IF NOT EXISTS media (
+                    chat_id        INTEGER NOT NULL,
+                    message_id     INTEGER NOT NULL,
+                    user_id        INTEGER NOT NULL,
+                    date           INTEGER NOT NULL,
+                    username       TEXT,
+                    display_name   TEXT NOT NULL,
+                    kind           TEXT NOT NULL,
+                    file_id        TEXT NOT NULL,
+                    file_unique_id TEXT NOT NULL,
+                    file_name      TEXT,
+                    PRIMARY KEY (chat_id, message_id)
+                )
+                """
+            )
+            c.execute(
+                "CREATE INDEX IF NOT EXISTS idx_media_chat_user_kind "
+                "ON media(chat_id, user_id, kind, message_id)"
+            )
 
     def save(self, msg: StoredMessage) -> None:
         with self._conn() as c:
@@ -75,6 +110,81 @@ class MessageStore:
                     msg.text,
                 ),
             )
+
+    def save_media(self, item: MediaItem) -> None:
+        with self._conn() as c:
+            c.execute(
+                """
+                INSERT OR REPLACE INTO media
+                    (chat_id, message_id, user_id, date, username, display_name,
+                     kind, file_id, file_unique_id, file_name)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    item.chat_id,
+                    item.message_id,
+                    item.user_id,
+                    item.date,
+                    item.username,
+                    item.display_name,
+                    item.kind,
+                    item.file_id,
+                    item.file_unique_id,
+                    item.file_name,
+                ),
+            )
+
+    def recent_media(
+        self,
+        chat_id: int | None = None,
+        user_id: int | None = None,
+        display_name: str | None = None,
+        kind: str | None = None,
+        limit: int = 10,
+    ) -> list[MediaItem]:
+        """Most-recent-first media, optionally filtered by chat/user/name/kind."""
+        clauses, params = [], []
+        if chat_id is not None:
+            clauses.append("chat_id = ?")
+            params.append(chat_id)
+        if user_id is not None:
+            clauses.append("user_id = ?")
+            params.append(user_id)
+        if display_name is not None:
+            clauses.append("display_name = ?")
+            params.append(display_name)
+        if kind is not None:
+            clauses.append("kind = ?")
+            params.append(kind)
+        where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+        params.append(limit)
+        with self._conn() as c:
+            rows = c.execute(
+                f"""
+                SELECT chat_id, user_id, message_id, date, username, display_name,
+                       kind, file_id, file_unique_id, file_name
+                FROM media
+                {where}
+                ORDER BY message_id DESC
+                LIMIT ?
+                """,
+                params,
+            ).fetchall()
+        return [
+            MediaItem(
+                chat_id=r[0],
+                user_id=r[1],
+                message_id=r[2],
+                date=r[3],
+                username=r[4],
+                display_name=r[5],
+                kind=r[6],
+                file_id=r[7],
+                file_unique_id=r[8],
+                file_name=r[9],
+            )
+            for r in rows
+        ]
 
     def last_message_id_from_user(
         self, chat_id: int, user_id: int, before_message_id: int
