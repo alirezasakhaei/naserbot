@@ -31,6 +31,11 @@ STICKER_RESPONSE_FILE_ID = (
     "CAACAgQAAxkBAAJCkWoXZmEUi_wXpCeCI6KGNdJ121PHAAJzHAACtHWxUjOrC3r7CNjgOwQ"
 )
 
+# GIF (animation) auto-reply: when any trigger GIF is seen, reply with the response one.
+# Fill these in from the "GIF ..." log lines once you've sent the GIFs in the group.
+GIF_TRIGGER_UNIQUE_IDS: set[str] = set()
+GIF_RESPONSE_FILE_ID = ""
+
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
@@ -143,6 +148,27 @@ async def handle_sticker(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             logger.exception("Failed to send auto-reply sticker")
 
 
+async def handle_animation(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    msg = update.message
+    if msg is None or msg.animation is None:
+        return
+    a = msg.animation
+    logger.info(
+        "GIF chat=%s from=%s file_id=%s file_unique_id=%s name=%s",
+        msg.chat_id,
+        msg.from_user.id if msg.from_user else None,
+        a.file_id,
+        a.file_unique_id,
+        a.file_name,
+    )
+    if GIF_RESPONSE_FILE_ID and a.file_unique_id in GIF_TRIGGER_UNIQUE_IDS:
+        try:
+            await msg.reply_animation(GIF_RESPONSE_FILE_ID)
+            logger.info("Sent auto-reply GIF in chat %s", msg.chat_id)
+        except Exception:
+            logger.exception("Failed to send auto-reply GIF")
+
+
 async def debug_any(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Logs every update so we can see what Telegram is actually delivering."""
     msg = update.message or update.edited_message
@@ -217,6 +243,8 @@ def main() -> None:
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, record_message))
     # Sticker auto-reply + sticker ID logger.
     app.add_handler(MessageHandler(filters.Sticker.ALL, handle_sticker))
+    # GIF auto-reply + GIF ID logger.
+    app.add_handler(MessageHandler(filters.ANIMATION, handle_animation))
     # Debug: log EVERY incoming update so we can diagnose privacy/delivery issues.
     app.add_handler(MessageHandler(filters.ALL, debug_any), group=1)
 
