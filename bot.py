@@ -22,8 +22,11 @@ TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 OWNER_CHAT_ID = int(os.environ["OWNER_CHAT_ID"])
 DB_PATH = os.environ.get("NASERBOT_DB", "naserbot.db")
 
-# Sticker auto-reply: when the trigger sticker is seen, reply with the response one.
-STICKER_TRIGGER_UNIQUE_ID = "AgADgBsAAoWhoVI"
+# Sticker auto-reply: when any trigger sticker is seen, reply with the response one.
+STICKER_TRIGGER_UNIQUE_IDS = {
+    "AgADgBsAAoWhoVI",
+    "AgADAh4AAunVoVI",
+}
 STICKER_RESPONSE_FILE_ID = (
     "CAACAgQAAxkBAAJCkWoXZmEUi_wXpCeCI6KGNdJ121PHAAJzHAACtHWxUjOrC3r7CNjgOwQ"
 )
@@ -132,11 +135,7 @@ async def handle_sticker(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         s.emoji,
         s.set_name,
     )
-    if (
-        STICKER_TRIGGER_UNIQUE_ID
-        and STICKER_RESPONSE_FILE_ID
-        and s.file_unique_id == STICKER_TRIGGER_UNIQUE_ID
-    ):
+    if STICKER_RESPONSE_FILE_ID and s.file_unique_id in STICKER_TRIGGER_UNIQUE_IDS:
         try:
             await msg.reply_sticker(STICKER_RESPONSE_FILE_ID)
             logger.info("Sent auto-reply sticker in chat %s", msg.chat_id)
