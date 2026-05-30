@@ -29,6 +29,8 @@ _HELI_GIF2 = "CgACAgQAAyEFAATpJtHYAAIzWGoYaPQGllyLgseLXm6r9K_dc1dfAAJLBgACPBgQU7
 _HELI_GIF3 = "CgACAgEAAyEFAATpJtHYAAIzV2oYZ3yaex6oZgPKJDnKgEqmuR6oAAI_AQACGK0BR_G3Q3UfxOvaOwQ"
 _HELI_STICKER = "CAACAgQAAyEFAATpJtHYAAI1QGoaG419OWedNmWsGbx4GHw5dWp_AAICHgAC6dWhUlGotUjHfsZZOwQ"
 _OLD_STICKER = "CAACAgQAAxkBAAJCkWoXZmEUi_wXpCeCI6KGNdJ121PHAAJzHAACtHWxUjOrC3r7CNjgOwQ"
+# Correct sticker for the GIF#1 two-way pair.
+_PAIR_STICKER = "CAACAgQAAyEFAATpJtHYAAIyDGoXcTyIeKGbgf54vvsNaqnbPhumAAKtIQAC2UbhU1EQMwxpL77lOwQ"
 
 # Auto-reply map. Key = incoming media's file_unique_id.
 # Value = (how to send the reply, file_id to send). "gif" -> reply_animation,
@@ -41,8 +43,9 @@ MEDIA_REPLIES: dict[str, tuple[str, str]] = {
     "AgADAh4AAunVoVI": ("sticker", _OLD_STICKER),
     # Original 🫥 sticker keeps its one-way reply.
     "AgADgBsAAoWhoVI": ("sticker", _OLD_STICKER),
-    # TODO: two-way pair for Heli's first GIF (AgADzAcAAn_aQFA / file_id _HELI_GIF1)
-    #       <-> correct sticker — left empty until the sticker is provided.
+    # Heli's first GIF <-> the correct pair sticker (two-way).
+    "AgADzAcAAn_aQFA": ("sticker", _PAIR_STICKER),  # GIF#1   -> pair sticker
+    "AgADrSEAAtlG4VM": ("gif", _HELI_GIF1),          # sticker -> GIF#1
 }
 
 logging.basicConfig(
