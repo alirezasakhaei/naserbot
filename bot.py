@@ -37,11 +37,12 @@ MEDIA_REPLIES: dict[str, tuple[str, str]] = {
     # Heli's two latest GIFs trigger each other.
     "AgADSwYAAjwYEFM": ("gif", _HELI_GIF3),  # GIF#2 -> GIF#3
     "AgADPwEAAhitAUc": ("gif", _HELI_GIF2),  # GIF#3 -> GIF#2
-    # Heli's first GIF and her only sticker trigger each other.
-    "AgADzAcAAn_aQFA": ("sticker", _HELI_STICKER),  # GIF#1   -> sticker
-    "AgADAh4AAunVoVI": ("gif", _HELI_GIF1),         # sticker -> GIF#1
+    # Current sticker -> previous trigger sticker (one-way).
+    "AgADAh4AAunVoVI": ("sticker", _OLD_STICKER),
     # Original 🫥 sticker keeps its one-way reply.
     "AgADgBsAAoWhoVI": ("sticker", _OLD_STICKER),
+    # TODO: two-way pair for Heli's first GIF (AgADzAcAAn_aQFA / file_id _HELI_GIF1)
+    #       <-> correct sticker — left empty until the sticker is provided.
 }
 
 logging.basicConfig(
