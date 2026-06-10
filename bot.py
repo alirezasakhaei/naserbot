@@ -272,19 +272,27 @@ async def summary(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     user = msg.from_user
-    last_id = store.last_message_id_from_user(chat.id, user.id, msg.message_id)
 
-    if last_id is None:
-        await msg.reply_text(
-            "هنوز هیچ پیامی ازت توی این گروه ندارم. "
-            "یه پیام بفرست، بعداً با /summary بگو چه چیزایی رو از دست دادی."
-        )
-        return
-
-    rows = store.messages_in_range(chat.id, last_id, msg.message_id)
-    if not rows:
-        await msg.reply_text("از آخرین پیامت چیز جدیدی نبوده.")
-        return
+    # If the command is a reply, summarize from the replied-to message to the end.
+    if msg.reply_to_message is not None:
+        # Exclusive lower bound -> include the replied-to message itself.
+        after_id = msg.reply_to_message.message_id - 1
+        rows = store.messages_in_range(chat.id, after_id, msg.message_id)
+        if not rows:
+            await msg.reply_text("از اون پیام به بعد چیزی برای خلاصه کردن نیست.")
+            return
+    else:
+        last_id = store.last_message_id_from_user(chat.id, user.id, msg.message_id)
+        if last_id is None:
+            await msg.reply_text(
+                "هنوز هیچ پیامی ازت توی این گروه ندارم. "
+                "یه پیام بفرست، بعداً با /summary بگو چه چیزایی رو از دست دادی."
+            )
+            return
+        rows = store.messages_in_range(chat.id, last_id, msg.message_id)
+        if not rows:
+            await msg.reply_text("از آخرین پیامت چیز جدیدی نبوده.")
+            return
 
     transcript = "\n".join(f"{r.display_name}: {r.text}" for r in rows)
     logger.info(
