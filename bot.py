@@ -46,6 +46,8 @@ MEDIA_REPLIES: dict[str, tuple[str, str]] = {
     # Heli's first GIF <-> the correct pair sticker (two-way).
     "AgADzAcAAn_aQFA": ("sticker", _PAIR_STICKER),  # GIF#1   -> pair sticker
     "AgADrSEAAtlG4VM": ("gif", _HELI_GIF1),          # sticker -> GIF#1
+    # Aryan's GIF -> credit text (one-way).
+    "AgADByAAAihX2VA": ("text", "©️ @AryanAhadinia"),
 }
 
 logging.basicConfig(
@@ -199,12 +201,14 @@ async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     reply = MEDIA_REPLIES.get(media.file_unique_id)
     if reply:
-        reply_kind, reply_file_id = reply
+        reply_kind, reply_payload = reply
         try:
             if reply_kind == "sticker":
-                await msg.reply_sticker(reply_file_id)
+                await msg.reply_sticker(reply_payload)
+            elif reply_kind == "text":
+                await msg.reply_text(reply_payload)
             else:
-                await msg.reply_animation(reply_file_id)
+                await msg.reply_animation(reply_payload)
             logger.info(
                 "Auto-replied %s to trigger %s in chat %s",
                 reply_kind,
