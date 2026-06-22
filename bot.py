@@ -48,6 +48,8 @@ MEDIA_REPLIES: dict[str, tuple[str, str]] = {
     "AgADrSEAAtlG4VM": ("gif", _HELI_GIF1),          # sticker -> GIF#1
     # Aryan's GIF -> credit text (one-way).
     "AgADByAAAihX2VA": ("text", "©️ @AryanAhadinia"),
+    # Heli's sticker -> credit text (one-way).
+    "AgAD1BIAAhE0YVA": ("text", "©️@lilyorheli"),
 }
 
 logging.basicConfig(
