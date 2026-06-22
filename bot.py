@@ -1,6 +1,7 @@
 # NaserBot — Telegram group bot with /summary
 import logging
 import os
+import re
 
 from dotenv import load_dotenv
 from telegram import Update
@@ -51,6 +52,17 @@ MEDIA_REPLIES: dict[str, tuple[str, str]] = {
     # Heli's sticker -> credit text (one-way).
     "AgAD1BIAAhE0YVA": ("text", "©️@lilyorheli"),
 }
+
+# When Aryan mixes an English word into a Farsi message, tease him.
+ARYAN_USER_ID = 1977739460
+ARYAN_FARSI_ENGLISH_REPLY = "آقا آرین شما چقدر کلمه‌های فنی بلدین 🙄🥰🥰"
+_FARSI_CHAR = re.compile(r"[؀-ۿ]")
+_ENGLISH_WORD = re.compile(r"[A-Za-z]{2,}")
+
+
+def _is_farsi_with_english(text: str) -> bool:
+    """True if text has Farsi characters AND at least one Latin word (>=2 letters)."""
+    return bool(_FARSI_CHAR.search(text)) and bool(_ENGLISH_WORD.search(text))
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -143,6 +155,13 @@ async def record_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         msg.message_id,
         msg.text[:60],
     )
+
+    if user.id == ARYAN_USER_ID and _is_farsi_with_english(msg.text):
+        try:
+            await msg.reply_text(ARYAN_FARSI_ENGLISH_REPLY)
+            logger.info("Teased Aryan for Farsi+English message %s", msg.message_id)
+        except Exception:
+            logger.exception("Failed to tease Aryan")
 
 
 def _extract_media(msg):
